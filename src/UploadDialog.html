@@ -1,0 +1,45 @@
+<!-- UploadDialog.html -->
+<style>
+  body { font-family: Arial, sans-serif; padding: 16px; }
+  h3 { margin-top: 0; }
+  #status { margin-top: 12px; font-size: 13px; color: #444; }
+  button { margin-top: 12px; padding: 8px 16px; }
+</style>
+
+<h3>Upload Probation Letter</h3>
+<p id="studentLine"></p>
+<input type="file" id="fileInput" accept="application/pdf,image/*" />
+<br>
+<button onclick="upload()">Upload</button>
+<div id="status"></div>
+
+<script>
+  // studentName, grade, rowNum are injected by the server when the dialog opens
+  document.getElementById('studentLine').innerText =
+    'Student: <?= studentName ?>  |  Grade: <?= grade ?>';
+
+  function upload() {
+    const input = document.getElementById('fileInput');
+    if (!input.files.length) {
+      document.getElementById('status').innerText = 'Choose a file first.';
+      return;
+    }
+    const file = input.files[0];
+    const reader = new FileReader();
+    document.getElementById('status').innerText = 'Uploading...';
+
+    reader.onload = function(e) {
+      const base64 = e.target.result.split(',')[1];
+      google.script.run
+        .withSuccessHandler(function(url) {
+          document.getElementById('status').innerText = 'Done — link saved: ' + url;
+          setTimeout(function() { google.script.host.close(); }, 1500);
+        })
+        .withFailureHandler(function(err) {
+          document.getElementById('status').innerText = 'Error: ' + err.message;
+        })
+        .saveProbationLetter(base64, file.type, file.name, <?= rowNum ?>);
+    };
+    reader.readAsDataURL(file);
+  }
+</script>

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; color: #333; }
+    h2 { color: #1c4587; margin-top: 0; }
+    .general-note { background: #eef2fa; border-left: 4px solid #1c4587; padding: 12px; margin-bottom: 20px; }
+    .general-note textarea { width: 100%; box-sizing: border-box; min-height: 60px; font-family: inherit; font-size: 13px; }
+    .teacher-block { border: 1px solid #ddd; border-radius: 6px; padding: 12px; margin-bottom: 12px; }
+    .teacher-name { font-weight: bold; color: #1c4587; margin-bottom: 6px; }
+    .auto-summary { background: #f8f8f8; padding: 8px; font-size: 12px; white-space: pre-wrap; border-radius: 4px; margin-bottom: 8px; max-height: 120px; overflow-y: auto; }
+    .specific-note textarea { width: 100%; box-sizing: border-box; min-height: 50px; font-family: inherit; font-size: 13px; border: 1px solid #cc8400; background: #fffaf0; }
+    .specific-note label { font-size: 12px; color: #cc8400; font-weight: bold; }
+    #status { margin-top: 12px; font-weight: bold; }
+    button { background: #1c4587; color: white; border: none; padding: 10px 20px; border-radius: 4px; font-size: 14px; cursor: pointer; }
+    button:disabled { background: #999; }
+    #loading { color: #666; }
+  </style>
+</head>
+<body>
+  <h2>Generate MoM — Round <?= roundNum ?></h2>
+  <div id="loading">Loading teachers ready for this round...</div>
+  <div id="content" style="display:none;">
+    <div class="general-note">
+      <label><b>General note — goes into every document below:</b></label><br>
+      <textarea id="generalNote" placeholder="e.g. Reminder: MoM #3 sign-off sheets due by Friday."></textarea>
+    </div>
+    <div id="teacherList"></div>
+    <button id="sendBtn" onclick="submitAll()">Generate All</button>
+    <div id="status"></div>
+  </div>
+
+  <script>
+    const roundNum = Number(<?= roundNum ?>);
+    const meetingInfo = <?= meetingInfoJson ?>;
+    let teacherData = [];
+
+    google.script.run.withSuccessHandler(render).withFailureHandler(showError).getMoMComposeData(roundNum);
+
+    function render(data) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('content').style.display = 'block';
+      teacherData = data.teachers;
+
+      if (!teacherData.length) {
+        document.getElementById('teacherList').innerHTML = '<p>No teachers are ready for this round yet — mark attendance in the MoM Log first.</p>';
+        document.getElementById('sendBtn').disabled = true;
+      } else {
+        document.getElementById('teacherList').innerHTML = teacherData.map(function(t, i) {
+          return '<div class="teacher-block">' +
+            '<div class="teacher-name">' + t.name + ' — Attendance: ' + t.attendance + '</div>' +
+            '<div class="auto-summary">' + t.summary.replace(/</g, '&lt;') + '</div>' +
+            '<div class="specific-note">' +
+              '<label>Your observations for ' + t.name + ' (optional, goes into her document):</label><br>' +
+              '<textarea id="note_' + i + '" placeholder="What you noticed in her Action Plan / Progress Report..."></textarea>' +
+            '</div>' +
+          '</div>';
+        }).join('');
+      }
+    }
+
+    function showError(err) {
+      document.getElementById('loading').innerText = 'Error loading data: ' + err.message;
+    }
+
+    function submitAll() {
+      document.getElementById('sendBtn').disabled = true;
+      document.getElementById('status').innerText = 'Generating...';
+
+      const generalNote = document.getElementById('generalNote').value;
+      const teacherNotes = {};
+      teacherData.forEach(function(t, i) {
+        const val = document.getElementById('note_' + i).value.trim();
+        if (val) teacherNotes[t.name] = val;
+      });
+
+      google.script.run
+        .withSuccessHandler(function(msg) {
+          document.getElementById('status').innerText = msg;
+          document.getElementById('sendBtn').innerText = 'Done — you can close this window';
+        })
+        .withFailureHandler(function(err) {
+          document.getElementById('status').innerText = 'Error: ' + err.message;
+          document.getElementById('sendBtn').disabled = false;
+        })
+        .submitMoMCompose(roundNum, generalNote, teacherNotes, meetingInfo);
+    }
+  </script>
+</body>
+</html>

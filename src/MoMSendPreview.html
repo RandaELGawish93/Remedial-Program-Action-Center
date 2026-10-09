@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; color: #333; }
+    h2 { color: #1c4587; margin-top: 0; }
+    #recipientList { background: #eef2fa; padding: 10px; border-radius: 6px; margin-bottom: 14px; font-size: 13px; }
+    .note-box { margin-bottom: 14px; }
+    .note-box textarea { width: 100%; box-sizing: border-box; min-height: 60px; font-family: inherit; font-size: 13px; }
+    .roles { margin-bottom: 14px; padding: 10px; background: #f4f4f4; border-radius: 6px; }
+    .roles label { display: block; font-size: 13px; margin: 4px 0; }
+    .preview-box { border: 1px dashed #aaa; border-radius: 6px; padding: 14px; background: #fff; font-size: 13px; margin-bottom: 14px; }
+    .preview-subject { font-weight: bold; margin-bottom: 6px; }
+    .preview-attachments { color: #666; font-size: 12px; margin-bottom: 8px; }
+    #status { margin-top: 12px; font-weight: bold; }
+    button { background: #1c4587; color: white; border: none; padding: 10px 20px; border-radius: 4px; font-size: 14px; cursor: pointer; }
+    button:disabled { background: #999; }
+    #loading { color: #666; }
+  </style>
+</head>
+<body>
+  <h2>Send MoM — Round <?= roundNum ?></h2>
+  <div id="loading">Loading recipients...</div>
+  <div id="content" style="display:none;">
+    <div id="recipientList"></div>
+    <div class="note-box">
+      <label><b>Additional note (optional — goes to everyone):</b></label><br>
+      <textarea id="additionalNote" oninput="renderPreview()"></textarea>
+    </div>
+    <div class="roles">
+      <b>CC:</b>
+      <div id="rolesList"></div>
+    </div>
+    <div class="preview-box" id="previewBox"></div>
+    <button id="sendBtn" onclick="submitSend()">Send</button>
+    <div id="status"></div>
+  </div>
+
+  <script>
+    const roundNum = Number(<?= roundNum ?>);
+    let teacherData = [];
+    let roundLabel = '';
+
+    google.script.run.withSuccessHandler(render).withFailureHandler(showError).getMoMSendPreviewData(roundNum);
+
+    function render(data) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('content').style.display = 'block';
+      teacherData = data.teachers;
+      roundLabel = data.roundLabel;
+
+      if (!teacherData.length) {
+        document.getElementById('recipientList').innerHTML = '<p>No one is ready to be sent for this round yet — generate the MoM(s) first.</p>';
+        document.getElementById('sendBtn').disabled = true;
+      } else {
+        document.getElementById('recipientList').innerHTML =
+          '<b>To (' + teacherData.length + '):</b> ' + teacherData.map(t => esc(t.name)).join(', ');
+      }
+
+      document.getElementById('rolesList').innerHTML = data.activeRoles.map(function(r) {
+        return '<label><input type="checkbox" class="ccRole" value="' + r.email + '" checked> ' + r.role + ' (' + r.name + ')</label>';
+      }).join('') || '<i>No other active contacts configured in Settings.</i>';
+
+      renderPreview();
+    }
+
+    function esc(s) { return (s || '').replace(/</g, '&lt;'); }
+
+    function renderPreview() {
+      const note = document.getElementById('additionalNote').value;
+      let body = 'Dear Teachers,<br><br>Please find attached your Minutes of Meeting for ' + esc(roundLabel) + '.';
+      if (note) {
+        body += '<div style="background:#f4f4f4;padding:10px;border-left:4px solid #1c4587;margin-top:10px;">' + esc(note) + '</div>';
+      }
+      document.getElementById('previewBox').innerHTML =
+        '<div class="preview-subject">Subject: ' + esc(roundLabel) + '</div>' +
+        '<div class="preview-attachments">' + teacherData.length + ' MoM PDF(s) attached (one per teacher)</div>' +
+        '<hr>' + body;
+    }
+
+    function showError(err) {
+      document.getElementById('loading').innerText = 'Error: ' + err.message;
+    }
+
+    function submitSend() {
+      document.getElementById('sendBtn').disabled = true;
+      document.getElementById('status').innerText = 'Sending...';
+
+      const additionalNote = document.getElementById('additionalNote').value;
+      const ccEmails = Array.prototype.slice.call(document.querySelectorAll('.ccRole:checked')).map(function(el) { return el.value; });
+
+      google.script.run
+        .withSuccessHandler(function(msg) {
+          document.getElementById('status').innerText = msg;
+          document.getElementById('sendBtn').innerText = 'Done — you can close this window';
+        })
+        .withFailureHandler(function(err) {
+          document.getElementById('status').innerText = 'Error: ' + err.message;
+          document.getElementById('sendBtn').disabled = false;
+        })
+        .submitMoMSend(roundNum, additionalNote, ccEmails);
+    }
+  </script>
+</body>
+</html>
