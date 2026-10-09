@@ -8,6 +8,8 @@ A complete Google Workspace system for running a school's **student intervention
 
 It's built around one **master workbook** for the program lead. From it, the system generates and syncs a **workbook for every remedial teacher** and a **read-only workbook for each division principal**.
 
+> **Impact:** One review round covers **76 action plans** for **56 students**, written by **33 teachers**. Reviewing them by hand took about **a week**; with the automated audit tabs, placeholder and generic-entry detection, and batched Head of Department notices, the same review now takes **about 15 minutes**.
+
 ---
 
 ## Screenshots
