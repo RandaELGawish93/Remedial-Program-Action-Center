@@ -1,0 +1,10 @@
+# clasp project binding (contains your private script ID)
+.clasp.json
+.clasprc.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+node_modules/
